@@ -1,0 +1,21 @@
+[package]
+name = 'aptos_arena'
+version = '1.0.0'
+
+[addresses]
+aptos_arena = '6dea44e79ce16ac82a77e0be74b26953295ccf04a5ff2dcac7738001581d8722'
+
+[dependencies.AptosFramework]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = 'main'
+subdir = 'aptos-move/framework/aptos-framework'
+
+[dependencies.AptosToken]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = 'main'
+subdir = 'aptos-move/framework/aptos-token'
+
+[dependencies.AptosTokenObjects]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = 'main'
+subdir = 'aptos-move/framework/aptos-token-objects'
