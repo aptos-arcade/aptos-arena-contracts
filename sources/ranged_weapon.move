@@ -7,7 +7,7 @@ module aptos_arena::ranged_weapon {
     use aptos_std::smart_table::{Self, SmartTable};
     use aptos_std::string_utils;
 
-    use aptos_framework::object::{Self, Object};
+    use aptos_framework::object::{Self, Object, TransferRef};
 
     use aptos_token_objects::collection;
     use aptos_token_objects::token::{Self, Token};
@@ -53,6 +53,7 @@ module aptos_arena::ranged_weapon {
         power: u64,
         type: u64,
         range: u64,
+        transfer_ref: TransferRef
     }
 
     /// create the ranged weapon collection
@@ -77,6 +78,7 @@ module aptos_arena::ranged_weapon {
     // public functions
 
     public fun mint(player: &signer): Object<RangedWeapon> acquires RangedWeaponCollection {
+        assert_collection_initialized();
         let player_address = signer::address_of(player);
         assert_player_has_not_claimed(player_address);
         let creator = game_admin::get_signer();
@@ -97,6 +99,7 @@ module aptos_arena::ranged_weapon {
             power: 0,
             type: ranged_weapon_type,
             range: 0,
+            transfer_ref: object::generate_transfer_ref(&constructor_ref)
         };
         move_to(&token_signer, ranged_weapon);
 
@@ -110,7 +113,19 @@ module aptos_arena::ranged_weapon {
         let token_object = object::address_to_object<Token>(object_address);
         object::transfer(&creator, token_object, player_address);
 
+        let transfer_ref = object::generate_transfer_ref(&constructor_ref);
+        object::enable_ungated_transfer(&transfer_ref);
+
         object::address_to_object<RangedWeapon>(object_address)
+    }
+
+    /// trnasfers `ranged_weapon` to `to`
+    /// `ranged_weapon` - the ranged weapon to transfer
+    /// `to` - the address to transfer to
+    public fun transfer_ranged_weapon(ranged_weapon: &Object<RangedWeapon>, to: address) acquires RangedWeapon {
+        let ranged_weapon_struct = borrow_global<RangedWeapon>(object::object_address(ranged_weapon));
+        let linear_transfer_ref = object::generate_linear_transfer_ref(&ranged_weapon_struct.transfer_ref);
+        object::transfer_with_ref(linear_transfer_ref, to);
     }
 
     // helper functions
@@ -145,7 +160,7 @@ module aptos_arena::ranged_weapon {
     }
 
     /// asserts that the player collection exists
-    fun assert_player_collection_initialized() {
+    fun assert_collection_initialized() {
         assert!(exists<RangedWeaponCollection>(get_collection_address()), ENOT_INITIALIZED)
     }
 
@@ -167,7 +182,7 @@ module aptos_arena::ranged_weapon {
     fun test_initialize(aptos_arena: &signer) {
         setup_tests(aptos_arena);
         initialize(aptos_arena);
-        assert_player_collection_initialized();
+        assert_collection_initialized();
     }
 
     #[test(aptos_arena = @aptos_arena)]
@@ -205,6 +220,13 @@ module aptos_arena::ranged_weapon {
         setup_tests(aptos_arena);
         initialize(aptos_arena);
         mint(player);
+        mint(player);
+    }
+
+    #[test(aptos_arena = @aptos_arena, player = @0x5)]
+    #[expected_failure(abort_code=ENOT_INITIALIZED)]
+    fun test_mint_not_initialized(aptos_arena: &signer, player: &signer) acquires RangedWeaponCollection {
+        setup_tests(aptos_arena);
         mint(player);
     }
 }

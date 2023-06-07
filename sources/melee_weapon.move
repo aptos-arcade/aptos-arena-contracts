@@ -7,7 +7,7 @@ module aptos_arena::melee_weapon {
     use aptos_std::smart_table::{Self, SmartTable};
     use aptos_std::string_utils;
 
-    use aptos_framework::object::{Self, Object};
+    use aptos_framework::object::{Self, Object, TransferRef};
 
     use aptos_token_objects::collection;
     use aptos_token_objects::token::{Self, Token};
@@ -53,6 +53,7 @@ module aptos_arena::melee_weapon {
         power: u64,
         type: u64,
         knockback: u64,
+        transfer_ref: TransferRef
     }
 
     /// create the melee weapon collection
@@ -77,6 +78,7 @@ module aptos_arena::melee_weapon {
     // public functions
 
     public fun mint(player: &signer): Object<MeleeWeapon> acquires MeleeWeaponCollection {
+        assert_collection_initialized();
         let player_address = signer::address_of(player);
         assert_player_has_not_claimed(player_address);
         let creator = game_admin::get_signer();
@@ -97,6 +99,7 @@ module aptos_arena::melee_weapon {
             power: 0,
             type: melee_weapon_type,
             knockback: 0,
+            transfer_ref: object::generate_transfer_ref(&constructor_ref)
         };
         move_to(&token_signer, melee_weapon);
 
@@ -110,7 +113,19 @@ module aptos_arena::melee_weapon {
         let token_object = object::address_to_object<Token>(object_address);
         object::transfer(&creator, token_object, player_address);
 
+        let transfer_ref = object::generate_transfer_ref(&constructor_ref);
+        object::enable_ungated_transfer(&transfer_ref);
+
         object::address_to_object<MeleeWeapon>(object_address)
+    }
+
+    /// trnasfers `melee_weapon` to `to`
+    /// `melee_weapon` - the melee weapon to transfer
+    /// `to` - the address to transfer to
+    public fun transfer_melee_weapon(melee_weapon: &Object<MeleeWeapon>, to: address) acquires MeleeWeapon {
+        let melee_weapon_struct = borrow_global<MeleeWeapon>(object::object_address(melee_weapon));
+        let linear_transfer_ref = object::generate_linear_transfer_ref(&melee_weapon_struct.transfer_ref);
+        object::transfer_with_ref(linear_transfer_ref, to);
     }
 
     // helper functions
@@ -145,7 +160,7 @@ module aptos_arena::melee_weapon {
     }
 
     /// asserts that the player collection exists
-    fun assert_player_collection_initialized() {
+    fun assert_collection_initialized() {
         assert!(exists<MeleeWeaponCollection>(get_collection_address()), ENOT_INITIALIZED)
     }
 
@@ -167,7 +182,7 @@ module aptos_arena::melee_weapon {
     fun test_initialize(aptos_arena: &signer) {
         setup_tests(aptos_arena);
         initialize(aptos_arena);
-        assert_player_collection_initialized();
+        assert_collection_initialized();
     }
 
     #[test(aptos_arena = @aptos_arena)]
@@ -205,6 +220,13 @@ module aptos_arena::melee_weapon {
         setup_tests(aptos_arena);
         initialize(aptos_arena);
         mint(player);
+        mint(player);
+    }
+
+    #[test(aptos_arena = @aptos_arena, player = @0x5)]
+    #[expected_failure(abort_code=ENOT_INITIALIZED)]
+    fun test_mint_not_initialized(aptos_arena: &signer, player: &signer) acquires MeleeWeaponCollection {
+        setup_tests(aptos_arena);
         mint(player);
     }
 }

@@ -83,6 +83,7 @@ module aptos_arena::player {
     /// mints a player token for the given player
     /// `player` - signer of the transaction; only one mint per account
     public fun mint_player(player: &signer) acquires PlayerCollection {
+        assert_player_collection_initialized();
         let player_address = signer::address_of(player);
         assert_player_has_not_claimed(player_address);
         let creator = game_admin::get_signer();
@@ -159,7 +160,7 @@ module aptos_arena::player {
         let player_obj_address = get_player_token_address(player_address);
         let player_data = borrow_global_mut<Player>(player_obj_address);
         let stored_weapon = option::extract(&mut player_data.melee_weapon);
-        object::transfer(player, stored_weapon, player_address);
+        melee_weapon::transfer_melee_weapon(&stored_weapon, player_address);
     }
 
     /// equips a ranged weapon to the player
@@ -182,7 +183,7 @@ module aptos_arena::player {
         let player_obj_address = get_player_token_address(player_address);
         let player_data = borrow_global_mut<Player>(player_obj_address);
         let stored_weapon = option::extract(&mut player_data.ranged_weapon);
-        object::transfer(player, stored_weapon, player_address);
+        ranged_weapon::transfer_ranged_weapon(&stored_weapon, player_address);
     }
 
     // helper functions
@@ -237,7 +238,10 @@ module aptos_arena::player {
         if(!option::is_some(&player.melee_weapon)) {
             (0, 0)
         } else {
-            melee_weapon::get_melee_weapon_data(option::extract(&mut player.melee_weapon))
+            let melee_weapon = option::extract(&mut player.melee_weapon);
+            let (power, type) = melee_weapon::get_melee_weapon_data(melee_weapon);
+            player.melee_weapon = option::some(melee_weapon);
+            (power, type)
         }
     }
 
@@ -249,7 +253,10 @@ module aptos_arena::player {
         if(!option::is_some(&player.ranged_weapon)) {
             (0, 0)
         } else {
-            ranged_weapon::get_ranged_weapon_data(option::extract(&mut player.ranged_weapon))
+            let ranged_weapon = option::extract(&mut player.ranged_weapon);
+            let (power, type) = ranged_weapon::get_ranged_weapon_data(ranged_weapon);
+            player.ranged_weapon = option::some(ranged_weapon);
+            (power, type)
         }
     }
 
@@ -329,6 +336,13 @@ module aptos_arena::player {
         game_admin::initialize(aptos_arena);
         initialize(aptos_arena);
         mint_player(player);
+        mint_player(player);
+    }
+
+    #[test(aptos_arena = @aptos_arena, player = @0x5)]
+    #[expected_failure(abort_code=ENOT_INITIALIZED)]
+    fun test_mint_player_not_initialized(aptos_arena: &signer, player: &signer) acquires PlayerCollection {
+        game_admin::initialize(aptos_arena);
         mint_player(player);
     }
 }
