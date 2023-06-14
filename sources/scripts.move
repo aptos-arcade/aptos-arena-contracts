@@ -7,32 +7,15 @@ module aptos_arena::scripts {
 
     use aptos_token::token;
 
+    use aptos_arcade::match::Match;
+
     use aptos_arena::brawler;
     use aptos_arena::melee_weapon::{Self, MeleeWeapon};
     use aptos_arena::ranged_weapon::{Self, RangedWeapon};
-    use aptos_arena::aptos_arena;
-
-    #[test_only]
-    use aptos_framework::genesis;
-    #[test_only]
-    use std::vector;
-    #[test_only]
-    use std::string;
-    #[test_only]
-    use aptos_framework::account;
-    #[test_only]
-    use aptos_framework::object;
-
-    const TEST_COLLECTION_NAME: vector<u8> = b"TEST_COLLECTION";
-    const TEST_COLLECTION_DESCRIPTION: vector<u8> = b"TEST_COLLECTION_DESCRIPTION";
-    const TEST_COLLECTION_URI: vector<u8> = b"TEST_COLLECTION_URI";
-
-    const TEST_TOKEN_NAME: vector<u8> = b"TEST_TOKEN_NAME";
-    const TEST_TOKEN_DESCRIPTION: vector<u8> = b"TEST_TOKEN_DESCRIPTION";
-    const TEST_TOKEN_URI: vector<u8> = b"TEST_TOKEN_URI";
+    use aptos_arena::aptos_arena::{Self, AptosArena};
 
     /// initialize all of the modules
-    /// aptos_arena - the deployer of the package
+    /// `aptos_arena` - the deployer of the package
     public entry fun initialize(aptos_arena: &signer) {
         aptos_arena::initialize(aptos_arena);
         brawler::initialize(aptos_arena);
@@ -41,81 +24,75 @@ module aptos_arena::scripts {
     }
 
     /// mint a player
-    /// player - the player to mint
-    public entry fun mint_player(player: &signer) {
-        brawler::mint_player(player);
+    /// `player` - the player to mint for
+    public entry fun init_player(player: &signer) {
+        brawler::mint_brawler(player);
+        aptos_arena::mint_elo_token(player);
     }
 
     /// mint a melee weapon
-    /// player - the player to mint the weapon for
+    /// `player` - the player to mint the melee weapon for
     public entry fun mint_melee_weapon(player: &signer) {
         melee_weapon::mint(player);
     }
 
     /// equip a melee weapon
-    /// player - the player to equip the weapon for
-    /// weapon - the weapon to equip
+    /// `player` - the player to equip the melee weapon for
+    /// `weapon` - the melee weapon object to equip
     public entry fun equip_melee_weapon(player: &signer, weapon: Object<MeleeWeapon>) {
         let (_, type) = brawler::get_player_melee_weapon(signer::address_of(player));
-        if(type != 0)
-        {
-            brawler::unequip_melee_weapon(player);
-        };
+        if(type != 0) brawler::unequip_melee_weapon(player);
         brawler::equip_melee_weapon(player, weapon);
     }
 
     /// unequip a melee weapon
-    /// player - the player to unequip the weapon for
-    /// weapon - the weapon to unequip
+    /// `player` - the player to unequip the melee weapon for
+    /// `weapon` - the melee weapon object to unequip
     public entry fun unequip_melee_weapon(player: &signer) {
         brawler::unequip_melee_weapon(player);
     }
 
     /// mint a melee weapon and equip it
-    /// player - the player to mint the weapon for
+    /// `player` - the player to mint and equip the melee weapon for
     public entry fun mint_and_equip_melee_weapon(player: &signer) {
         let weapon = melee_weapon::mint(player);
         brawler::equip_melee_weapon(player, weapon);
     }
 
     /// mint a ranged weapon
-    /// player - the player to mint the weapon for
+    /// `player` - the player to mint the ranged weapon for
     public entry fun mint_ranged_weapon(player: &signer) {
         ranged_weapon::mint(player);
     }
 
     /// equip a ranged weapon
-    /// player - the player to equip the weapon for
-    /// weapon - the weapon to equip
+    /// `player` - the player to equip the ranged weapon for
+    /// `weapon` - the ranged weapon object to equip
     public entry fun equip_ranged_weapon(player: &signer, weapon: Object<RangedWeapon>) {
         let (_, type) = brawler::get_player_ranged_weapon(signer::address_of(player));
-        if(type != 0)
-        {
-            brawler::unequip_ranged_weapon(player);
-        };
+        if(type != 0) brawler::unequip_ranged_weapon(player);
         brawler::equip_ranged_weapon(player, weapon);
     }
 
     /// unequip a ranged weapon
-    /// player - the player to unequip the weapon for
-    /// weapon - the weapon to unequip
+    /// `player` - the player to unequip the ranged weapon for
     public entry fun unequip_ranged_weapon(player: &signer) {
         brawler::unequip_ranged_weapon(player);
     }
 
     /// mint a ranged weapon and equip it
-    /// player - the player to mint the weapon for
+    /// `player` - the player to mint and eqip the ranged weapon for
     public entry fun mint_and_equip_ranged_weapon(player: &signer) {
         let weapon = ranged_weapon::mint(player);
         brawler::equip_ranged_weapon(player, weapon);
     }
 
     /// equip a character
-    /// player - the player to equip the character for
-    /// creator - the creator of the character
-    /// collection - the collection of the character
-    /// name - the name of the character
-    /// property_version - the property version of the character
+    /// `player` - the player to equip the character for
+    /// `creator` - the creator of the character token
+    /// `collection` - the collection of the character token
+    /// `name` - the name of the character token
+    /// `property_version` - the property version of the character token
     public entry fun equip_character(
         player: &signer,
         creator: address,
@@ -128,10 +105,52 @@ module aptos_arena::scripts {
     }
 
     /// unequip a character
-    /// player - the player to unequip the character for
+    /// `player` - the player to unequip the character for
     public entry fun unequip_character(player: &signer) {
         brawler::unequip_character(player);
     }
+
+    /// create a match
+    /// `game_admin` - the admin of the game
+    /// `teams` - the teams in the match
+    public entry fun create_match(game_admin: &signer, teams: vector<vector<address>>) {
+        aptos_arena::create_match(game_admin, teams);
+    }
+
+    /// set a match's results
+    /// `game_admin` - the admin of the game
+    /// `match` - the match object to set the results for
+    /// `winner_index` - the index of the winning team
+    public entry fun set_match_result(game_admin: &signer, match: Object<Match<AptosArena>>, winner_index: u64) {
+        aptos_arena::set_match_result(game_admin, match, winner_index);
+    }
+
+    // tests
+
+    #[test_only]
+    const TEST_COLLECTION_NAME: vector<u8> = b"TEST_COLLECTION";
+    #[test_only]
+    const TEST_COLLECTION_DESCRIPTION: vector<u8> = b"TEST_COLLECTION_DESCRIPTION";
+    #[test_only]
+    const TEST_COLLECTION_URI: vector<u8> = b"TEST_COLLECTION_URI";
+
+    #[test_only]
+    const TEST_TOKEN_NAME: vector<u8> = b"TEST_TOKEN_NAME";
+    #[test_only]
+    const TEST_TOKEN_DESCRIPTION: vector<u8> = b"TEST_TOKEN_DESCRIPTION";
+    #[test_only]
+    const TEST_TOKEN_URI: vector<u8> = b"TEST_TOKEN_URI";
+
+    #[test_only]
+    use aptos_framework::genesis;
+    #[test_only]
+    use std::vector;
+    #[test_only]
+    use std::string;
+    #[test_only]
+    use aptos_framework::account;
+    #[test_only]
+    use aptos_framework::object;
 
     #[test_only]
     fun create_collection_and_transfer(from: &signer, to: &signer)
@@ -188,7 +207,7 @@ module aptos_arena::scripts {
         account::create_account_for_test(signer::address_of(player));
 
         initialize(aptos_arena);
-        mint_player(player);
+        init_player(player);
 
         let melee_weapon = melee_weapon::mint(player);
         let (expected_melee_power, expected_melee_type) = melee_weapon::get_melee_weapon_data(melee_weapon);
@@ -234,7 +253,7 @@ module aptos_arena::scripts {
         genesis::setup();
         initialize(aptos_arena);
 
-        mint_player(player);
+        init_player(player);
 
         mint_and_equip_melee_weapon(player);
 
@@ -246,7 +265,7 @@ module aptos_arena::scripts {
         genesis::setup();
         initialize(aptos_arena);
 
-        mint_player(player);
+        init_player(player);
 
         mint_melee_weapon(player);
 
@@ -263,11 +282,11 @@ module aptos_arena::scripts {
         account::create_account_for_test(signer::address_of(player));
         account::create_account_for_test(signer::address_of(player2));
 
-        mint_player(player);
+        init_player(player);
 
         create_collection_and_transfer(aptos_arena, player);
 
-        mint_player(player2);
+        init_player(player2);
 
         equip_character(
             player,
@@ -284,8 +303,8 @@ module aptos_arena::scripts {
         genesis::setup();
         initialize(aptos_arena);
 
-        mint_player(player);
-        mint_player(player2);
+        init_player(player);
+        init_player(player2);
 
         let melee_weapon1 = melee_weapon::mint(player);
         let melee_weapon2 = melee_weapon::mint(player2);
@@ -298,6 +317,37 @@ module aptos_arena::scripts {
         equip_ranged_weapon(player, ranged_weapon1);
         object::transfer(player2, ranged_weapon2, signer::address_of(player));
         equip_ranged_weapon(player, ranged_weapon2);
+    }
+
+    #[test(aptos_arena = @aptos_arena, player1 = @0x50, player2=@0x51)]
+    public fun test_create_match(aptos_arena: &signer, player1: &signer, player2: &signer) {
+        genesis::setup();
+        initialize(aptos_arena);
+
+        init_player(player1);
+        init_player(player2);
+
+        let teams = vector<vector<address>>[
+            vector<address>[signer::address_of(player1)],
+            vector<address>[signer::address_of(player2)]
+        ];
+        create_match(aptos_arena, teams)
+    }
+
+    #[test(aptos_arena = @aptos_arena, player1 = @0x50, player2=@0x51)]
+    public fun test_set_match_results(aptos_arena: &signer, player1: &signer, player2: &signer) {
+        genesis::setup();
+        initialize(aptos_arena);
+
+        init_player(player1);
+        init_player(player2);
+
+        let teams = vector<vector<address>>[
+            vector<address>[signer::address_of(player1)],
+            vector<address>[signer::address_of(player2)]
+        ];
+        let match_obj = aptos_arena::create_match(aptos_arena, teams);
+        set_match_result(aptos_arena, match_obj, 0);
     }
 
 }

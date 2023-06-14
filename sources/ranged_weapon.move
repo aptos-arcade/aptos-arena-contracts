@@ -14,13 +14,6 @@ module aptos_arena::ranged_weapon {
     use aptos_arena::utils;
     use aptos_arena::aptos_arena;
 
-
-
-    #[test_only]
-    use aptos_framework::genesis;
-    #[test_only]
-    use aptos_framework::timestamp;
-
     // errors
 
     /// player collection already initialized
@@ -167,6 +160,11 @@ module aptos_arena::ranged_weapon {
 
     // tests
 
+
+    #[test_only]
+    use aptos_framework::genesis;
+    #[test_only]
+    use aptos_framework::timestamp;
     #[test_only]
     use aptos_arcade::game_admin;
 

@@ -3,19 +3,19 @@ module aptos_arena::aptos_arena {
     use std::string::String;
     use std::option::Option;
 
-    use aptos_framework::object::ConstructorRef;
+    use aptos_framework::object::{ConstructorRef, Object};
 
     use aptos_token_objects::royalty::Royalty;
 
+    use aptos_arcade::scripts;
     use aptos_arcade::game_admin::{Self, GameAdminCapability, PlayerCapability};
-
 
     struct AptosArena has drop {}
 
     // public functions
 
     public fun initialize(aptos_arena: &signer) {
-        game_admin::initialize(aptos_arena, AptosArena {});
+        scripts::initialize(aptos_arena, AptosArena {});
     }
 
     public fun create_collection(
@@ -72,6 +72,18 @@ module aptos_arena::aptos_arena {
         )
     }
 
+    public fun mint_elo_token(player: &signer) {
+        scripts::mint_elo_token(player, AptosArena {});
+    }
+
+    public fun create_match(game_admin: &signer, teams: vector<vector<address>>): Object<Match<AptosArena>> {
+        scripts::create_match(game_admin, AptosArena {}, teams)
+    }
+
+    public fun set_match_result(game_admin: &signer, match: Object<Match<AptosArena>>, winner_index: u64) {
+        scripts::set_match_result(game_admin, AptosArena {}, match, winner_index);
+    }
+
     // access control
 
     fun create_game_admin_capability(game_admin: &signer): GameAdminCapability<AptosArena> {
@@ -100,10 +112,11 @@ module aptos_arena::aptos_arena {
     use aptos_framework::object;
     #[test_only]
     use aptos_token_objects::token::Token;
+    use aptos_arcade::match::Match;
 
 
-    #[test(aptos_arena=@aptos_arena, player=@0x100)]
-    fun test_e2e(aptos_arena: &signer, player: &signer) {
+    #[test(aptos_arena=@aptos_arena, player1=@0x100, player2=@0x101)]
+    fun test_e2e(aptos_arena: &signer, player1: &signer, player2: &signer) {
 
         let collection_name = string::utf8(b"test_collection");
         let collection_description = string::utf8(b"test_collection_description");
@@ -136,7 +149,7 @@ module aptos_arena::aptos_arena {
         ), 0);
 
         let constructor_ref = mint_token_player(
-            player,
+            player1,
             collection_name,
             token_description,
             token_name,
@@ -146,8 +159,18 @@ module aptos_arena::aptos_arena {
         );
         assert!(object::is_owner(
             object::object_from_constructor_ref<Token>(&constructor_ref),
-            signer::address_of(player)
+            signer::address_of(player1)
         ), 0);
+
+        mint_elo_token(player1);
+        mint_elo_token(player2);
+
+        let teams = vector<vector<address>> [
+            vector<address>[signer::address_of(player1)],
+            vector<address>[signer::address_of(player2)]
+        ];
+        let match_object = create_match(aptos_arena, teams);
+        set_match_result(aptos_arena, match_object, 0);
     }
 
 }

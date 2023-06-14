@@ -1,5 +1,5 @@
 [package]
-name = 'aptos_arena'
+name = 'AptosArena'
 version = '1.0.0'
 
 [addresses]
