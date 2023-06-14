@@ -10,10 +10,11 @@ module aptos_arena::ranged_weapon {
     use aptos_framework::object::{Self, Object, TransferRef};
 
     use aptos_token_objects::collection;
-    use aptos_token_objects::token::{Self, Token};
 
     use aptos_arena::utils;
-    use aptos_arena::game_admin;
+    use aptos_arena::aptos_arena;
+
+
 
     #[test_only]
     use aptos_framework::genesis;
@@ -58,12 +59,10 @@ module aptos_arena::ranged_weapon {
 
     /// create the ranged weapon collection
     /// `deployer` - the transaction signer; must be the deployer
-    public fun initialize(deployer: &signer) {
-        game_admin::assert_signer_is_deployer(deployer);
+    public fun initialize(aptos_arena: &signer) {
         assert_collection_not_initialized();
-        let creator = game_admin::get_signer();
-        let constructor_ref = collection::create_unlimited_collection(
-            &creator,
+        let constructor_ref = aptos_arena::create_collection(
+            aptos_arena,
             string::utf8(COLLECTION_DESCRIPTION),
             string::utf8(COLLECTION_NAME),
             option::none(),
@@ -81,15 +80,15 @@ module aptos_arena::ranged_weapon {
         assert_collection_initialized();
         let player_address = signer::address_of(player);
         assert_player_has_not_claimed(player_address);
-        let creator = game_admin::get_signer();
         let ranged_weapon_type = utils::rand_int(NUM_RANGED_WEAPONS) + 1;
-        let constructor_ref = token::create_from_account(
-            &creator,
+        let constructor_ref = aptos_arena::mint_token_player(
+            player,
             string::utf8(COLLECTION_NAME),
             string::utf8(TOKEN_DESCRIPTION),
             string::utf8(TOKEN_NAME),
             option::none(),
-            string_utils::format1(&COLLECTION_BASE_URI, ranged_weapon_type)
+            string_utils::format1(&COLLECTION_BASE_URI, ranged_weapon_type),
+            false
         );
 
         let token_signer = object::generate_signer(&constructor_ref);
@@ -108,10 +107,6 @@ module aptos_arena::ranged_weapon {
         // update the ranged weapon collection
         let ranged_weapon_collection = borrow_global_mut<RangedWeaponCollection>(get_collection_address());
         smart_table::add(&mut ranged_weapon_collection.player_has_minted, player_address, true);
-
-        // transfer the object to the player
-        let token_object = object::address_to_object<Token>(object_address);
-        object::transfer(&creator, token_object, player_address);
 
         let transfer_ref = object::generate_transfer_ref(&constructor_ref);
         object::enable_ungated_transfer(&transfer_ref);
@@ -135,7 +130,7 @@ module aptos_arena::ranged_weapon {
     #[view]
     /// returns the address of the player collection
     public fun get_collection_address(): address {
-        collection::create_collection_address(&game_admin::get_creator_address(), &string::utf8(COLLECTION_NAME))
+        collection::create_collection_address(&aptos_arena::get_game_account_address(), &string::utf8(COLLECTION_NAME))
     }
 
     #[view]
@@ -173,9 +168,12 @@ module aptos_arena::ranged_weapon {
     // tests
 
     #[test_only]
+    use aptos_arcade::game_admin;
+
+    #[test_only]
     fun setup_tests(aptos_arena: &signer) {
         genesis::setup();
-        game_admin::initialize(aptos_arena);
+        aptos_arena::initialize(aptos_arena);
     }
 
     #[test(aptos_arena = @aptos_arena)]
@@ -194,14 +192,14 @@ module aptos_arena::ranged_weapon {
     }
 
     #[test(aptos_arena = @aptos_arena, not_aptos_arena = @0x1)]
-    #[expected_failure(abort_code=game_admin::ENOT_DEPLOYER)]
+    #[expected_failure(abort_code=game_admin::ESIGNER_NOT_ADMIN)]
     fun test_initialize_not_deployer(aptos_arena: &signer, not_aptos_arena: &signer) {
         setup_tests(aptos_arena);
         initialize(not_aptos_arena);
     }
 
     #[test(aptos_arena = @aptos_arena, player = @0x5)]
-    fun test_mint_player(aptos_arena: &signer, player: &signer) acquires RangedWeaponCollection, RangedWeapon {
+    fun test_mint_ranged_weapon(aptos_arena: &signer, player: &signer) acquires RangedWeaponCollection, RangedWeapon {
         setup_tests(aptos_arena);
         initialize(aptos_arena);
         let ranged_weapon_obj = mint(player);
@@ -216,7 +214,7 @@ module aptos_arena::ranged_weapon {
 
     #[test(aptos_arena = @aptos_arena, player = @0x5)]
     #[expected_failure(abort_code=EALREADY_CLAIMED)]
-    fun test_mint_player_twice(aptos_arena: &signer, player: &signer) acquires RangedWeaponCollection {
+    fun test_mint_ranged_weapon_twice(aptos_arena: &signer, player: &signer) acquires RangedWeaponCollection {
         setup_tests(aptos_arena);
         initialize(aptos_arena);
         mint(player);
@@ -228,5 +226,16 @@ module aptos_arena::ranged_weapon {
     fun test_mint_not_initialized(aptos_arena: &signer, player: &signer) acquires RangedWeaponCollection {
         setup_tests(aptos_arena);
         mint(player);
+    }
+
+    #[test(aptos_arena = @aptos_arena, player1 = @0x5, player2=@0x6)]
+    fun test_transfer_ranged_weapon(aptos_arena: &signer, player1: &signer, player2: &signer)
+    acquires RangedWeaponCollection, RangedWeapon {
+        setup_tests(aptos_arena);
+        initialize(aptos_arena);
+        let ranged_weapon_obj = mint(player1);
+        let player2_address = signer::address_of(player2);
+        transfer_ranged_weapon(&ranged_weapon_obj, player2_address);
+        assert!(object::is_owner(ranged_weapon_obj, player2_address), 0);
     }
 }

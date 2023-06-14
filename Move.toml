@@ -3,19 +3,8 @@ name = 'aptos_arena'
 version = '1.0.0'
 
 [addresses]
-aptos_arena = 'd0d068848da0d8b1eec5755c048142c8efecf8a2ac9e319d6f502358535f2590'
+aptos_arena = '0xc09622c20bdd49b2b83b7e05c264a62cfedeb45eaf5c629d0f0174917d801aef'
 
-[dependencies.AptosFramework]
-git = 'https://github.com/aptos-labs/aptos-core.git'
-rev = 'main'
-subdir = 'aptos-move/framework/aptos-framework'
-
-[dependencies.AptosToken]
-git = 'https://github.com/aptos-labs/aptos-core.git'
-rev = 'main'
-subdir = 'aptos-move/framework/aptos-token'
-
-[dependencies.AptosTokenObjects]
-git = 'https://github.com/aptos-labs/aptos-core.git'
-rev = 'main'
-subdir = 'aptos-move/framework/aptos-token-objects'
+[dependencies.AptosArcadeCore]
+git = 'https://github.com/aptos-arcade/aptos-arcade-core-contracts'
+rev = 'master'

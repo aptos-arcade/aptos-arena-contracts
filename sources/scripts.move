@@ -7,15 +7,13 @@ module aptos_arena::scripts {
 
     use aptos_token::token;
 
-    use aptos_arena::game_admin;
-    use aptos_arena::player;
+    use aptos_arena::brawler;
     use aptos_arena::melee_weapon::{Self, MeleeWeapon};
     use aptos_arena::ranged_weapon::{Self, RangedWeapon};
+    use aptos_arena::aptos_arena;
 
     #[test_only]
     use aptos_framework::genesis;
-    #[test_only]
-    use aptos_arena::player::{unequip_melee_weapon, unequip_character};
     #[test_only]
     use std::vector;
     #[test_only]
@@ -36,8 +34,8 @@ module aptos_arena::scripts {
     /// initialize all of the modules
     /// aptos_arena - the deployer of the package
     public entry fun initialize(aptos_arena: &signer) {
-        game_admin::initialize(aptos_arena);
-        player::initialize(aptos_arena);
+        aptos_arena::initialize(aptos_arena);
+        brawler::initialize(aptos_arena);
         melee_weapon::initialize(aptos_arena);
         ranged_weapon::initialize(aptos_arena);
     }
@@ -45,7 +43,7 @@ module aptos_arena::scripts {
     /// mint a player
     /// player - the player to mint
     public entry fun mint_player(player: &signer) {
-        player::mint_player(player);
+        brawler::mint_player(player);
     }
 
     /// mint a melee weapon
@@ -58,19 +56,26 @@ module aptos_arena::scripts {
     /// player - the player to equip the weapon for
     /// weapon - the weapon to equip
     public entry fun equip_melee_weapon(player: &signer, weapon: Object<MeleeWeapon>) {
-        let (_, type) = player::get_player_melee_weapon(signer::address_of(player));
+        let (_, type) = brawler::get_player_melee_weapon(signer::address_of(player));
         if(type != 0)
         {
-            player::unequip_melee_weapon(player);
+            brawler::unequip_melee_weapon(player);
         };
-        player::equip_melee_weapon(player, weapon);
+        brawler::equip_melee_weapon(player, weapon);
+    }
+
+    /// unequip a melee weapon
+    /// player - the player to unequip the weapon for
+    /// weapon - the weapon to unequip
+    public entry fun unequip_melee_weapon(player: &signer) {
+        brawler::unequip_melee_weapon(player);
     }
 
     /// mint a melee weapon and equip it
     /// player - the player to mint the weapon for
     public entry fun mint_and_equip_melee_weapon(player: &signer) {
         let weapon = melee_weapon::mint(player);
-        player::equip_melee_weapon(player, weapon);
+        brawler::equip_melee_weapon(player, weapon);
     }
 
     /// mint a ranged weapon
@@ -83,26 +88,26 @@ module aptos_arena::scripts {
     /// player - the player to equip the weapon for
     /// weapon - the weapon to equip
     public entry fun equip_ranged_weapon(player: &signer, weapon: Object<RangedWeapon>) {
-        let (_, type) = player::get_player_ranged_weapon(signer::address_of(player));
+        let (_, type) = brawler::get_player_ranged_weapon(signer::address_of(player));
         if(type != 0)
         {
-            player::unequip_ranged_weapon(player);
+            brawler::unequip_ranged_weapon(player);
         };
-        player::equip_ranged_weapon(player, weapon);
+        brawler::equip_ranged_weapon(player, weapon);
     }
 
     /// unequip a ranged weapon
     /// player - the player to unequip the weapon for
     /// weapon - the weapon to unequip
     public entry fun unequip_ranged_weapon(player: &signer) {
-        player::unequip_ranged_weapon(player);
+        brawler::unequip_ranged_weapon(player);
     }
 
     /// mint a ranged weapon and equip it
     /// player - the player to mint the weapon for
     public entry fun mint_and_equip_ranged_weapon(player: &signer) {
         let weapon = ranged_weapon::mint(player);
-        player::equip_ranged_weapon(player, weapon);
+        brawler::equip_ranged_weapon(player, weapon);
     }
 
     /// equip a character
@@ -119,7 +124,13 @@ module aptos_arena::scripts {
         property_version: u64
     ) {
         let token_id = token::create_token_id_raw(creator, collection, name, property_version);
-        player::equip_character(player, token_id);
+        brawler::equip_character(player, token_id);
+    }
+
+    /// unequip a character
+    /// player - the player to unequip the character for
+    public entry fun unequip_character(player: &signer) {
+        brawler::unequip_character(player);
     }
 
     #[test_only]
@@ -182,7 +193,7 @@ module aptos_arena::scripts {
         let melee_weapon = melee_weapon::mint(player);
         let (expected_melee_power, expected_melee_type) = melee_weapon::get_melee_weapon_data(melee_weapon);
         equip_melee_weapon(player, melee_weapon);
-        let (actual_melee_power, actual_melee_type) = player::get_player_melee_weapon(signer::address_of(player));
+        let (actual_melee_power, actual_melee_type) = brawler::get_player_melee_weapon(signer::address_of(player));
         assert!(expected_melee_power == actual_melee_power, 0);
         assert!(expected_melee_type == actual_melee_type, 0);
         unequip_melee_weapon(player);
@@ -190,14 +201,14 @@ module aptos_arena::scripts {
         let ranged_weapon = ranged_weapon::mint(player);
         let (expected_ranged_power, expected_ranged_type) = ranged_weapon::get_ranged_weapon_data(ranged_weapon);
         equip_ranged_weapon(player, ranged_weapon);
-        let (actual_ranged_power, actual_ranged_type) = player::get_player_ranged_weapon(signer::address_of(player));
+        let (actual_ranged_power, actual_ranged_type) = brawler::get_player_ranged_weapon(signer::address_of(player));
         assert!(expected_ranged_power == actual_ranged_power, 0);
         assert!(expected_ranged_type == actual_ranged_type, 0);
         unequip_ranged_weapon(player);
 
         create_collection_and_transfer(aptos_arena, player);
 
-        let (creator_address, collection_name, token_name) = player::get_player_character(signer::address_of(player));
+        let (creator_address, collection_name, token_name) = brawler::get_player_character(signer::address_of(player));
         assert!(creator_address == @0x0, 0);
         assert!(collection_name == string::utf8(b""), 0);
         assert!(token_name == string::utf8(b""), 0);
@@ -210,7 +221,7 @@ module aptos_arena::scripts {
             0
         );
 
-        let (creator_address, collection_name, token_name) = player::get_player_character(signer::address_of(player));
+        let (creator_address, collection_name, token_name) = brawler::get_player_character(signer::address_of(player));
         assert!(creator_address == signer::address_of(aptos_arena), 0);
         assert!(collection_name == string::utf8(TEST_COLLECTION_NAME), 0);
         assert!(token_name == string::utf8(TEST_TOKEN_NAME), 0);
@@ -243,7 +254,7 @@ module aptos_arena::scripts {
     }
 
     #[test(aptos_arena = @aptos_arena, player = @0x50, player2 = @0x51)]
-    #[expected_failure(abort_code=player::EINVALID_CHARACTER_TOKEN)]
+    #[expected_failure(abort_code= brawler::EINVALID_CHARACTER_TOKEN)]
     fun test_equip_invalid_character(aptos_arena: &signer, player: &signer, player2: &signer) {
         genesis::setup();
         initialize(aptos_arena);

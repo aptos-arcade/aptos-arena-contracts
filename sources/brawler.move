@@ -1,4 +1,4 @@
-module aptos_arena::player {
+module aptos_arena::brawler {
 
     use std::string::{Self, String};
     use std::option::{Self, Option};
@@ -12,9 +12,8 @@ module aptos_arena::player {
     use aptos_token::token::{Self as token_v1, TokenDataId, TokenId};
 
     use aptos_token_objects::collection::{Self};
-    use aptos_token_objects::token;
 
-    use aptos_arena::game_admin;
+    use aptos_arena::aptos_arena;
     use aptos_arena::melee_weapon::{Self, MeleeWeapon};
     use aptos_arena::ranged_weapon::{Self, RangedWeapon};
 
@@ -55,20 +54,16 @@ module aptos_arena::player {
         character: Option<TokenDataId>,
         melee_weapon: Option<Object<MeleeWeapon>>,
         ranged_weapon: Option<Object<RangedWeapon>>,
-        wins: u64,
-        losses: u64,
     }
 
     // entry functions
 
     /// initializes the player collection under the creator resource account
-    /// `deployer` - signer of the transaction; must be the package deployer
-    public fun initialize(deployer: &signer) {
-        game_admin::assert_signer_is_deployer(deployer);
+    /// `game_admin` - signer of the transaction; must be the package deployer
+    public fun initialize(game_admin: &signer) {
         assert_collection_not_initialized();
-        let creator = game_admin::get_signer();
-        let constructor_ref = collection::create_unlimited_collection(
-            &creator,
+        let constructor_ref = aptos_arena::create_collection(
+            game_admin,
             string::utf8(COLLECTION_DESCRIPTION),
             string::utf8(COLLECTION_NAME),
             option::none(),
@@ -86,14 +81,14 @@ module aptos_arena::player {
         assert_player_collection_initialized();
         let player_address = signer::address_of(player);
         assert_player_has_not_claimed(player_address);
-        let creator = game_admin::get_signer();
-        let constructor_ref = token::create_from_account(
-            &creator,
+        let constructor_ref = aptos_arena::mint_token_player(
+            player,
             string::utf8(COLLECTION_NAME),
             string::utf8(TOKEN_DESCRIPTION),
             string_utils::to_string_with_canonical_addresses(&player_address),
             option::none(),
             string::utf8(TOKEN_BASE_URI),
+            true
         );
 
         let object_signer = object::generate_signer(&constructor_ref);
@@ -103,20 +98,12 @@ module aptos_arena::player {
             character: option::none(),
             melee_weapon: option::none(),
             ranged_weapon: option::none(),
-            wins: 0,
-            losses: 0,
         };
         move_to(&object_signer, aptos_token);
 
         // update player token mapping
         let player_collection = borrow_global_mut<PlayerCollection>(get_collection_address());
         smart_table::add(&mut player_collection.player_token_mapping, player_address, signer::address_of(&object_signer));
-
-        // issue to player and disable transfer
-        let transfer_ref = object::generate_transfer_ref(&constructor_ref);
-        let linear_transfer_ref = object::generate_linear_transfer_ref(&transfer_ref);
-        object::transfer_with_ref(linear_transfer_ref, player_address);
-        object::disable_ungated_transfer(&transfer_ref);
     }
 
     // equip and unqeip functions
@@ -193,7 +180,10 @@ module aptos_arena::player {
     #[view]
     /// returns the address of the player collection
     public fun get_collection_address(): address {
-        collection::create_collection_address(&game_admin::get_creator_address(), &string::utf8(COLLECTION_NAME))
+        collection::create_collection_address(
+            &aptos_arena::get_game_account_address(), 
+            &string::utf8(COLLECTION_NAME)
+        )
     }
 
     #[view]
@@ -207,14 +197,12 @@ module aptos_arena::player {
     #[view]
     /// returns the player data for the given player
     /// `player` - player address
-    public fun get_player_data(player: address): (Option<TokenDataId>, Option<Object<MeleeWeapon>>, u64, u64)
+    public fun get_player_data(player: address): (Option<TokenDataId>, Option<Object<MeleeWeapon>>)
     acquires PlayerCollection, Player {
         let player = borrow_global<Player>(get_player_token_address(player));
         (
             player.character,
-            player.melee_weapon,
-            player.wins,
-            player.losses
+            player.melee_weapon
         )
     }
 
@@ -289,9 +277,12 @@ module aptos_arena::player {
 
     // tests
 
+    #[test_only]
+    use aptos_arcade::game_admin;
+
     #[test(aptos_arena = @aptos_arena)]
     fun test_initialize(aptos_arena: &signer) {
-        game_admin::initialize(aptos_arena);
+        aptos_arena::initialize(aptos_arena);
         initialize(aptos_arena);
         assert_player_collection_initialized();
     }
@@ -299,41 +290,34 @@ module aptos_arena::player {
     #[test(aptos_arena = @aptos_arena)]
     #[expected_failure(abort_code=EALREADY_INITIALIZED)]
     fun test_initialize_twice(aptos_arena: &signer) {
-        game_admin::initialize(aptos_arena);
+        aptos_arena::initialize(aptos_arena);
         initialize(aptos_arena);
         initialize(aptos_arena);
     }
 
     #[test(aptos_arena = @aptos_arena, not_aptos_arena = @0x1)]
-    #[expected_failure(abort_code=game_admin::ENOT_DEPLOYER)]
+    #[expected_failure(abort_code=game_admin::ESIGNER_NOT_ADMIN)]
     fun test_initialize_not_deployer(aptos_arena: &signer, not_aptos_arena: &signer) {
-        game_admin::initialize(aptos_arena);
+        aptos_arena::initialize(aptos_arena);
         initialize(not_aptos_arena);
     }
 
     #[test(aptos_arena = @aptos_arena, player = @0x5)]
     fun test_mint_player(aptos_arena: &signer, player: &signer) acquires PlayerCollection, Player {
-        game_admin::initialize(aptos_arena);
+        aptos_arena::initialize(aptos_arena);
         initialize(aptos_arena);
         mint_player(player);
         let player_address = signer::address_of(player);
         assert!(exists<Player>(get_player_token_address(player_address)), 0);
-        let (
-            character,
-            melee_weapon,
-            wins,
-            losses
-        ) = get_player_data(player_address);
+        let (character, melee_weapon) = get_player_data(player_address);
         assert!(character == option::none(), 0);
         assert!(melee_weapon == option::none(), 0);
-        assert!(wins == 0, 0);
-        assert!(losses == 0, 0);
     }
 
     #[test(aptos_arena = @aptos_arena, player = @0x5)]
     #[expected_failure(abort_code=EALREADY_CLAIMED)]
     fun test_mint_player_twice(aptos_arena: &signer, player: &signer) acquires PlayerCollection {
-        game_admin::initialize(aptos_arena);
+        aptos_arena::initialize(aptos_arena);
         initialize(aptos_arena);
         mint_player(player);
         mint_player(player);
@@ -342,7 +326,7 @@ module aptos_arena::player {
     #[test(aptos_arena = @aptos_arena, player = @0x5)]
     #[expected_failure(abort_code=ENOT_INITIALIZED)]
     fun test_mint_player_not_initialized(aptos_arena: &signer, player: &signer) acquires PlayerCollection {
-        game_admin::initialize(aptos_arena);
+        aptos_arena::initialize(aptos_arena);
         mint_player(player);
     }
 }
