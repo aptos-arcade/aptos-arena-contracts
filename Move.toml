@@ -3,7 +3,7 @@ name = 'AptosArena'
 version = '1.0.0'
 
 [addresses]
-aptos_arena = '0xc09622c20bdd49b2b83b7e05c264a62cfedeb45eaf5c629d0f0174917d801aef'
+aptos_arena = '0xd71b4784f28cd0b0f6d629a0042b88e9e2faad13abc8e85389c48f9445745983'
 
 [dependencies.AptosArcadeCore]
 git = 'https://github.com/aptos-arcade/aptos-arcade-core-contracts'
