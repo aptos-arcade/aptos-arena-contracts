@@ -50,12 +50,15 @@ module aptos_arena::brawler {
     /// initializes the player collection under the creator resource account
     /// `game_admin` - signer of the transaction; must be the package deployer
     public fun initialize(game_admin: &signer) {
-        aptos_arena::create_one_to_one_collection(
+        aptos_arena::create_collection(
             game_admin,
             get_collection_description(),
             get_collection_name(),
             option::none(),
-            get_collection_uri()
+            get_collection_uri(),
+            true,
+            true,
+            true
         );
     }
 
@@ -69,7 +72,6 @@ module aptos_arena::brawler {
             string_utils::to_string_with_canonical_addresses(&signer::address_of(player)),
             option::none(),
             get_token_uri(),
-            true
         );
 
         let object_signer = object::generate_signer(&constructor_ref);

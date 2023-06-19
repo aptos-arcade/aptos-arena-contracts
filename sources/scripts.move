@@ -26,8 +26,8 @@ module aptos_arena::scripts {
     /// mint a player
     /// `player` - the player to mint for
     public entry fun init_player(player: &signer) {
+        aptos_arena::initialize_player(player);
         brawler::mint_brawler(player);
-        aptos_arena::mint_elo_token(player);
     }
 
     /// mint a melee weapon

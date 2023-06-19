@@ -34,12 +34,15 @@ module aptos_arena::ranged_weapon {
     /// create the ranged weapon collection
     /// `aptos_arena` - the transaction signer; must be the deployer
     public fun initialize(aptos_arena: &signer) {
-        aptos_arena::create_one_to_one_collection(
+        aptos_arena::create_collection(
             aptos_arena,
             get_collection_description(),
             get_collection_name(),
             option::none(),
             get_collection_uri(),
+            false,
+            true,
+            true
         );
     }
 
@@ -57,7 +60,6 @@ module aptos_arena::ranged_weapon {
             get_token_name(),
             option::none(),
             get_token_uri(ranged_weapon_type),
-            false
         );
 
         let transfer_ref = object::generate_transfer_ref(&constructor_ref);

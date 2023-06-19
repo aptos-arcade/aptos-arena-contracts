@@ -35,12 +35,15 @@ module aptos_arena::melee_weapon {
     /// create the melee weapon collection
     /// `deployer` - the transaction signer; must be the deployer
     public fun initialize(game_admin: &signer) {
-       aptos_arena::create_one_to_one_collection(
+       aptos_arena::create_collection(
             game_admin,
             get_collection_description(),
             get_collection_name(),
             option::none(),
             get_collection_uri(),
+           false,
+           true,
+           true
         );
     }
 
@@ -55,7 +58,6 @@ module aptos_arena::melee_weapon {
             get_token_name(),
             option::none(),
             get_token_uri(melee_weapon_type),
-            false
         );
 
         let transfer_ref = object::generate_transfer_ref(&constructor_ref);
